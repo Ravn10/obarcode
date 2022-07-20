@@ -9,10 +9,10 @@ import frappe, json, urllib
 from frappe.model.document import Document
 from frappe.model.mapper import get_mapped_doc
 from frappe import msgprint, _
-from frappe.utils.data import fmt_money 
+from frappe.utils.data import fmt_money
 from six import string_types, iteritems
 import qrcode, io, os
-from io import BytesIO	
+from io import BytesIO
 import base64
 from frappe.integrations.utils import make_get_request, make_post_request, create_request_log
 from frappe.utils import cstr, flt, cint, nowdate, get_url
@@ -24,7 +24,7 @@ from PyPDF2 import PdfFileReader,PdfFileMerger
 from reportlab.pdfgen import canvas
 from reportlab.lib.units import mm
 from reportlab.graphics.barcode import eanbc
-from reportlab.graphics.shapes import Drawing 
+from reportlab.graphics.shapes import Drawing
 from erpnext import get_default_company
 from obarcode.utils import _now_ms,random_string, oLogger
 from frappe.utils.file_manager import save_file
@@ -80,11 +80,12 @@ class BarcodePrinting(Document):
 		})
 
 		return ret
-	
+
 	@frappe.whitelist()
 	def printer_test(self):
-		
+
 		merger = PdfFileMerger()
+		# merger.setPageLayout("/TwoColumnLeft")
 
 		xLabel = 50*mm
 		yLabel = 25*mm
@@ -113,6 +114,7 @@ class BarcodePrinting(Document):
 			merger.append(f1)
 
 		mFileName = f'{_now_ms()}.pdf'
+		merger.setPageLayout(layout = "/TwoColumnLeft")
 		merger.write(mFileName)
 
 		f1 = open(mFileName, 'rb')
@@ -121,7 +123,7 @@ class BarcodePrinting(Document):
 		save_file(file_name, f1.read(), self.doctype,self.name, is_private=1)
 		if os.path.exists(fileName):os.remove(fileName)
 		if os.path.exists(mFileName):os.remove(mFileName)
-	
+
 	@frappe.whitelist()
 	def generate_item_barcode(self,qty=1,x=50,y=25):
 		"""
@@ -134,6 +136,7 @@ class BarcodePrinting(Document):
 		xLabel = float(x)*mm
 		yLabel = float(y)*mm
 		merger = PdfFileMerger()
+
 		barcodeDrawOnX = 20
 		barcodeDrawOnY = 20
 		barcodeBarHeight = yLabel/2
@@ -155,31 +158,31 @@ class BarcodePrinting(Document):
 		# oLogger.debug(f'barcodeBarHeight - {barcodeBarHeight}')
 		# oLogger.debug(f'fontSize - {fontSize}')
 
-		
+
 		# product_info = get_product_info_for_website(item_code).get('product_info') # get_product_info_for_website
 		# price = product_info.get('price') #formatted_price
 
 		# app_logo_url = "/assets/obarcode/fonts/29ltbukraregular.ttf"
-		
+
 		cart_settings = get_shopping_cart_settings()
 		currency = frappe.db.get_value("Price List", cart_settings.price_list, "currency")
 		# oLogger.debug(product_info)
 		# oLogger.debug(price)
-		
+
 		# if price:
 		# 	item_rate =  price.get('formatted_price')
 			# oLogger.debug(item_rate)
-		
+
 
 		fileName = f'{_now_ms()}.pdf'
 		company_name = get_default_company()
-		
+
 		oLogger.debug(self.items)
 		for item in self.items:
 			oLogger.debug(item)
-			item = frappe.get_doc("Barcode Generator Items",item)
-			if self.rate:
-				item_rate = fmt_money(self.rate, currency=currency)
+			# item = frappe.get_doc("Barcode Generator Items",item)
+			if item.rate:
+				item_rate = fmt_money(item.rate, currency=currency)
 			else:
 				item_rate = ''
 			for i in range(int(qty)):
@@ -213,8 +216,8 @@ class BarcodePrinting(Document):
 				merger.append(f1)
 
 		mFileName = f'{_now_ms()}.pdf'
+		merger.setPageLayout(layout = "/TwoColumnLeft")
 		merger.write(mFileName)
-
 		f1 = open(mFileName, 'rb')
 		# to_name = random_string(random.randint(1,6),"1234567890ABCDEFGHIJKLMNOPQRSTUVWXYZ").zfill(6)
 		# file_name = "{}-{}.pdf".format(item_barcode,to_name.replace(" ", "-").replace("/", "-"))
@@ -328,7 +331,7 @@ def get_item_details(frm):
 	items = frm.doc.items
 	item_code_list = [d.get("item_code") for d in items if d.get("item_code")]
 	item = frappe.db.sql("""select barcode, barcode_type
-		from `tabItem Barcode` 
+		from `tabItem Barcode`
 		where i.parent=%s""",
 		format(frappe.db.escape(frm.item_code)), as_dict = 1)
 
@@ -336,11 +339,11 @@ def get_item_details(frm):
 		frappe.throw(_("Item {0} is not active or end of life has been reached"))
 
 	item = item[0]
-	
+
 	return item
 
 @frappe.whitelist()
-def create_barcode_printing(throw_if_missing, se_id,pr_id):	
+def create_barcode_printing(throw_if_missing, se_id,pr_id):
 	bp = frappe.new_doc('Barcode Printing')
 
 	if(se_id):
@@ -358,7 +361,7 @@ def create_barcode_printing(throw_if_missing, se_id,pr_id):
 				row.serial_no = item.serial_no
 				row.batch_no = item.batch_no
 				row.ref_se = se_id
-	
+
 	if(pr_id):
 		pr = frappe.get_doc("Purchase Receipt",pr_id)
 		for item in pr.items:
@@ -395,19 +398,19 @@ def make_qrcode(doc, route):
 					serials.pop()
 				for serial in serials:
 					uri  = "item_qr?"
-					if item.get("item_code"): uri += "item_code=" + urllib.parse.quote(item.get_formatted("item_code")) 
-					if item.get("barcode"): uri += "&barcode=" + urllib.parse.quote(item.get_formatted("barcode")) 
-					if serial: uri += "&serial_no=" + urllib.parse.quote(serial) 
-					if item.get("batch_no"): uri += "&batch_no=" + urllib.parse.quote(item.get_formatted("batch_no")) 
-					# if item.get("rate"): uri += "&rate=" + urllib.parse.quote(item.get_formatted("rate")) 
+					if item.get("item_code"): uri += "item_code=" + urllib.parse.quote(item.get_formatted("item_code"))
+					if item.get("barcode"): uri += "&barcode=" + urllib.parse.quote(item.get_formatted("barcode"))
+					if serial: uri += "&serial_no=" + urllib.parse.quote(serial)
+					if item.get("batch_no"): uri += "&batch_no=" + urllib.parse.quote(item.get_formatted("batch_no"))
+					# if item.get("rate"): uri += "&rate=" + urllib.parse.quote(item.get_formatted("rate"))
 					img_str = qr_code_img(uri,route)
 					qr_html += '<img src="' + "data:image/png;base64,{0}".format(img_str.decode("utf-8")) + '" width="240px"/><br>'
 			else:
 				uri  = "item_qr?"
-				if item.get("item_code"): uri += "item_code=" + urllib.parse.quote(item.get_formatted("item_code")) 
-				if item.get("barcode"): uri += "&barcode=" + urllib.parse.quote(item.get_formatted("barcode")) 
-				if item.get("batch_no"): uri += "&batch_no=" + urllib.parse.quote(item.get_formatted("batch_no")) 
-				# if item.get("rate"): uri += "&rate=" + urllib.parse.quote(item.get_formatted("rate")) 
+				if item.get("item_code"): uri += "item_code=" + urllib.parse.quote(item.get_formatted("item_code"))
+				if item.get("barcode"): uri += "&barcode=" + urllib.parse.quote(item.get_formatted("barcode"))
+				if item.get("batch_no"): uri += "&batch_no=" + urllib.parse.quote(item.get_formatted("batch_no"))
+				# if item.get("rate"): uri += "&rate=" + urllib.parse.quote(item.get_formatted("rate"))
 				img_str = qr_code_img(uri,route)
 				qr_html += '<img src="' + "data:image/png;base64,{0}".format(img_str.decode("utf-8")) + '" width="240px"/><br>'
 	return qr_html

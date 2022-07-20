@@ -76,7 +76,7 @@ def generate_item_barcode(dt,dn,item_code,item_name,item_rate,item_barcode,qty=1
     from reportlab.pdfgen import canvas
     from reportlab.lib.units import mm
     from reportlab.graphics.barcode import eanbc
-    from reportlab.graphics.shapes import Drawing 
+    from reportlab.graphics.shapes import Drawing
     from erpnext import get_default_company
     from obarcode.utils import _now_ms,random_string
     from frappe.utils.file_manager import save_file
@@ -93,6 +93,7 @@ def generate_item_barcode(dt,dn,item_code,item_name,item_rate,item_barcode,qty=1
     xLabel = float(x)*mm
     yLabel = float(y)*mm
     merger = PdfFileMerger()
+    # merger.setPageLayout("/TwoColumnLeft")
     barcodeDrawOnX = 20
     barcodeDrawOnY = 20
     barcodeBarHeight = yLabel/2
@@ -114,29 +115,29 @@ def generate_item_barcode(dt,dn,item_code,item_name,item_rate,item_barcode,qty=1
     # oLogger.debug(f'barcodeBarHeight - {barcodeBarHeight}')
     # oLogger.debug(f'fontSize - {fontSize}')
 
-    
+
     # product_info = get_product_info_for_website(item_code).get('product_info') # get_product_info_for_website
     # price = product_info.get('price') #formatted_price
 
     # app_logo_url = "/assets/obarcode/fonts/29ltbukraregular.ttf"
-    
+
     cart_settings = get_shopping_cart_settings()
     price = get_price(
 				item_code, cart_settings.price_list, cart_settings.default_customer_group, cart_settings.company
 			)
-    
+
     # oLogger.debug(product_info)
     # oLogger.debug(price)
-    
+
     if price:
         item_rate =  price.get('formatted_price')
         # oLogger.debug(item_rate)
-    
+
 
     fileName = f'{_now_ms()}.pdf'
-    
+
     # oLogger.debug(f'fileName - {fileName}')
-    
+
     company_name = get_default_company()
     for i in range(int(qty)):
         # creating a pdf object
@@ -164,7 +165,9 @@ def generate_item_barcode(dt,dn,item_code,item_name,item_rate,item_barcode,qty=1
         f1 = PdfFileReader(open(fileName, 'rb'))
         merger.append(f1)
 
+
     mFileName = f'{_now_ms()}.pdf'
+    merger.setPageLayout(layout = "/TwoColumnLeft")
     merger.write(mFileName)
 
     f1 = open(mFileName, 'rb')
